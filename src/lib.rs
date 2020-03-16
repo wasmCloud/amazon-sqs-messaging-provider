@@ -87,14 +87,15 @@ impl AmazonSqsMessagingProvider {
         Ok(vec![])
     }
 
-    fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+    #[tokio::main(basic_scheduler)]
+    async fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
         let lock = self.clients.read().unwrap();
         let client = match lock.get(actor) {
             Some(c) => c,
             None => return Err(format!("Unknown actor: {}", actor).into())
         };
 
-        client.publish(msg)
+        client.publish(msg).await
     }
 }
 

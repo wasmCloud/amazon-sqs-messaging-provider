@@ -17,7 +17,7 @@
 //
 
 use rusoto_core::Region;
-use rusoto_sqs::{SqsClient};
+use rusoto_sqs::{Sqs, SqsClient, SendMessageRequest};
 use std::error::Error;
 use wascc_codec::messaging::PublishMessage;
 
@@ -41,7 +41,16 @@ impl Client {
         Self::default()
     }
 
-    pub fn publish(&self, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub async fn publish(&self, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+        let req = SendMessageRequest{
+            queue_url: msg.message.subject,
+            message_body: String::new(),
+            ..Default::default()
+        };
+        match self.sqs_client.send_message(req).await {
+            Ok(resp) => info!("resp: {:?}", resp),
+            Err(err) =>  error!("err: {:?}", err),
+        };
         Ok(vec![])
     }
 }

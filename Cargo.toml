@@ -15,3 +15,4 @@ log = "0.4.8"
 wascc-codec = "0.5.0"
 rusoto_core = "0.43.0"
 rusoto_sqs = "0.43.0"
+tokio = { version = "0.2.13", features = ["macros"]}
