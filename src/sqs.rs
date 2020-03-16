@@ -41,16 +41,20 @@ impl Client {
         Self::default()
     }
 
+    // Publishes a message.
     pub async fn publish(&self, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+        info!("Publishing message ({} bytes) to {}", msg.message.body.len(), msg.message.subject);
+
         let req = SendMessageRequest{
             queue_url: msg.message.subject,
-            message_body: String::new(),
+            message_body: String::from_utf8(msg.message.body)?,
             ..Default::default()
         };
-        match self.sqs_client.send_message(req).await {
-            Ok(resp) => info!("resp: {:?}", resp),
-            Err(err) =>  error!("err: {:?}", err),
-        };
+        let resp = self.sqs_client.send_message(req).await?;
+        if let Some(message_id) = resp.message_id {
+            info!("Message sent with ID: {}", message_id);
+        }
+
         Ok(vec![])
     }
 }
