@@ -23,19 +23,27 @@ extern crate wascc_codec as codec;
 
 use codec::capabilities::{CapabilityProvider, Dispatcher, NullDispatcher};
 use codec::core::{CapabilityConfiguration, OP_CONFIGURE, OP_REMOVE_ACTOR};
+use codec::messaging::{PublishMessage, OP_PUBLISH_MESSAGE};
 use codec::{deserialize, serialize};
 use env_logger;
 use std::collections::HashMap;
 use std::env;
+use std::sync::{Arc, RwLock};
 
 use std::error::Error;
 
+mod sqs;
+
 const CAPABILITY_ID: &str = "wascc:messaging";
+const ENV_SQS_QUEUE_URL: &str = "SQS_QUEUE_URL";
 
 capability_provider!(AmazonSqsMessagingProvider, AmazonSqsMessagingProvider::new);
 
 // Represents a waSCC Amazon SQS messaging provider.
-pub struct AmazonSqsMessagingProvider {}
+pub struct AmazonSqsMessagingProvider {
+    dispatcher: Arc<RwLock<Box<dyn Dispatcher>>>,
+    clients: Arc<RwLock<HashMap<String, sqs::Client>>>,
+}
 
 impl Default for AmazonSqsMessagingProvider {
     // Returns the default value for `AmazonSqsMessagingProvider`.
@@ -44,7 +52,10 @@ impl Default for AmazonSqsMessagingProvider {
             info!("Logger already intialized");
         }
 
-        AmazonSqsMessagingProvider {}
+        AmazonSqsMessagingProvider {
+            dispatcher: Arc::new(RwLock::new(Box::new(NullDispatcher::new()))),
+            clients: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 }
 
@@ -52,6 +63,43 @@ impl AmazonSqsMessagingProvider {
     // Creates a new, empty `AmazonSqsMessagingProvider`.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    // Start.
+    fn start(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
+        let module_id = &config.module;
+
+        info!("AmazonSqsMessagingProvider(wascc:messaging) start: {}", module_id);
+
+        let queue_url = match config.values.get(ENV_SQS_QUEUE_URL) {
+            Some(s) => s,
+            None => return Err("Missing configuration value: AWS_LAMBDA_RUNTIME_API".into())
+        };
+
+        let client = sqs::Client::new(queue_url);
+
+        self.clients.write().unwrap().insert(module_id.clone(), client);
+
+        Ok(vec![])
+    }
+
+    // Stop.
+    fn stop(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
+        let module_id = &config.module;
+
+        info!("AmazonSqsMessagingProvider(wascc:messaging) stop: {}", module_id);
+
+        self.clients.write().unwrap().remove(module_id);
+
+        Ok(vec![])
+    }
+
+    fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+        let client = match self.clients.read().unwrap().get(actor) {
+            Some(c) => c,
+            None => return Err(format!("Unknown actor: {}", actor).into())
+        };
+        Ok(vec![])
     }
 }
 
@@ -65,6 +113,9 @@ impl CapabilityProvider for AmazonSqsMessagingProvider {
     fn configure_dispatch(&self, dispatcher: Box<dyn Dispatcher>) -> Result<(), Box<dyn Error>> {
         info!("AmazonSqsMessagingProvider(wascc:messaging) configure_dispatch");
 
+        let mut lock = self.dispatcher.write().unwrap();
+        *lock = dispatcher;
+
         Ok(())
     }
 
@@ -73,10 +124,11 @@ impl CapabilityProvider for AmazonSqsMessagingProvider {
         info!("AmazonSqsMessagingProvider(wascc:messaging) handle_call `{}` from `{}`", op, actor);
 
         match op {
-            _ => return Err(format!("Unsupported operation: {}", op).into()),
+            OP_CONFIGURE if actor == "system" => self.start(deserialize(msg)?),
+            OP_REMOVE_ACTOR if actor == "system" => self.stop(deserialize(msg)?),
+            OP_PUBLISH_MESSAGE => self.publish_message(actor, deserialize(msg)?),
+            _ => Err(format!("Unsupported operation: {}", op).into()),
         }
-
-        Ok(vec![])
     }
 
     // Returns the human-readable, friendly name of this capability provider.
