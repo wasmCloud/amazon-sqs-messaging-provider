@@ -18,19 +18,30 @@
 
 use rusoto_core::Region;
 use rusoto_sqs::{SqsClient};
+use std::error::Error;
+use wascc_codec::messaging::PublishMessage;
 
 // Represents an Amazon SQS client.
-pub struct Client {
+pub(crate) struct Client {
     sqs_client: SqsClient,
-    queue_url: String,
+}
+
+impl Default for Client {
+    // Returns the default value for `Client`.
+    fn default() -> Self {
+        Client {
+            sqs_client: SqsClient::new(Region::default()),
+        }
+    }
 }
 
 impl Client {
-    // Creates a new `Client`.
-    pub fn new(queue_url: &str) -> Self {
-        Client {
-            sqs_client: SqsClient::new(Region::default()),
-            queue_url: queue_url.into(),
-        }
+    // Creates a new, default `Client`.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn publish(&self, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(vec![])
     }
 }

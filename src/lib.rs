@@ -24,10 +24,9 @@ extern crate wascc_codec as codec;
 use codec::capabilities::{CapabilityProvider, Dispatcher, NullDispatcher};
 use codec::core::{CapabilityConfiguration, OP_CONFIGURE, OP_REMOVE_ACTOR};
 use codec::messaging::{PublishMessage, OP_PUBLISH_MESSAGE};
-use codec::{deserialize, serialize};
+use codec::deserialize;
 use env_logger;
 use std::collections::HashMap;
-use std::env;
 use std::sync::{Arc, RwLock};
 
 use std::error::Error;
@@ -35,7 +34,6 @@ use std::error::Error;
 mod sqs;
 
 const CAPABILITY_ID: &str = "wascc:messaging";
-const ENV_SQS_QUEUE_URL: &str = "SQS_QUEUE_URL";
 
 capability_provider!(AmazonSqsMessagingProvider, AmazonSqsMessagingProvider::new);
 
@@ -71,12 +69,7 @@ impl AmazonSqsMessagingProvider {
 
         info!("AmazonSqsMessagingProvider(wascc:messaging) start: {}", module_id);
 
-        let queue_url = match config.values.get(ENV_SQS_QUEUE_URL) {
-            Some(s) => s,
-            None => return Err("Missing configuration value: AWS_LAMBDA_RUNTIME_API".into())
-        };
-
-        let client = sqs::Client::new(queue_url);
+        let client = sqs::Client::new();
 
         self.clients.write().unwrap().insert(module_id.clone(), client);
 
@@ -95,11 +88,13 @@ impl AmazonSqsMessagingProvider {
     }
 
     fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
-        let client = match self.clients.read().unwrap().get(actor) {
+        let lock = self.clients.read().unwrap();
+        let client = match lock.get(actor) {
             Some(c) => c,
             None => return Err(format!("Unknown actor: {}", actor).into())
         };
-        Ok(vec![])
+
+        client.publish(msg)
     }
 }
 
