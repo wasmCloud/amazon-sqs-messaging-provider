@@ -2,12 +2,15 @@ COLOR ?= always # Valid COLOR options: {always, auto, never}
 CARGO = cargo --color $(COLOR)
 BUILDER = ewbankkit/rust-amazonlinux:1.41.1-2018.03.0.20191219.0
 
-.PHONY: all build check clean doc release test update
+.PHONY: all amazonlinux build check clean doc release test update
 
 all: build
 
+amazonlinux:
+	@docker run --volume $(PWD):/volume --rm --tty $(BUILDER) cargo build --release
+
 build:
-	cargo build
+	@$(CARGO) build
 
 check:
 	@$(CARGO) check
@@ -19,7 +22,7 @@ doc:
 	@$(CARGO) doc
 
 release:
-	@docker run --volume $(PWD):/volume --rm --tty $(BUILDER) cargo build --release
+	@$(CARGO) build --release
 
 test: build
 	@$(CARGO) test
