@@ -63,7 +63,7 @@ impl AmazonSqsMessagingProvider {
         Self::default()
     }
 
-    // Start.
+    // Starts the capability provider.
     fn start(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
         let module_id = &config.module;
 
@@ -76,7 +76,7 @@ impl AmazonSqsMessagingProvider {
         Ok(vec![])
     }
 
-    // Stop.
+    // Stops the capability provider.
     fn stop(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
         let module_id = &config.module;
 
@@ -87,6 +87,8 @@ impl AmazonSqsMessagingProvider {
         Ok(vec![])
     }
 
+    // Publishes a message.
+    // Is this the right place for "tokio::main"?
     #[tokio::main(basic_scheduler)]
     async fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
         let lock = self.clients.read().unwrap();
