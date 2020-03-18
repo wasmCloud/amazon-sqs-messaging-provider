@@ -23,8 +23,8 @@ extern crate wascc_codec as codec;
 
 use codec::capabilities::{CapabilityProvider, Dispatcher, NullDispatcher};
 use codec::core::{CapabilityConfiguration, OP_CONFIGURE, OP_REMOVE_ACTOR};
-use codec::messaging::{PublishMessage, OP_PUBLISH_MESSAGE};
 use codec::deserialize;
+use codec::messaging::{PublishMessage, OP_PUBLISH_MESSAGE};
 use env_logger;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -67,11 +67,17 @@ impl AmazonSqsMessagingProvider {
     fn start(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
         let module_id = &config.module;
 
-        info!("AmazonSqsMessagingProvider(wascc:messaging) start: {}", module_id);
+        info!(
+            "AmazonSqsMessagingProvider(wascc:messaging) start: {}",
+            module_id
+        );
 
         let client = sqs::Client::new();
 
-        self.clients.write().unwrap().insert(module_id.clone(), client);
+        self.clients
+            .write()
+            .unwrap()
+            .insert(module_id.clone(), client);
 
         Ok(vec![])
     }
@@ -80,7 +86,10 @@ impl AmazonSqsMessagingProvider {
     fn stop(&self, config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
         let module_id = &config.module;
 
-        info!("AmazonSqsMessagingProvider(wascc:messaging) stop: {}", module_id);
+        info!(
+            "AmazonSqsMessagingProvider(wascc:messaging) stop: {}",
+            module_id
+        );
 
         self.clients.write().unwrap().remove(module_id);
 
@@ -90,11 +99,15 @@ impl AmazonSqsMessagingProvider {
     // Publishes a message.
     // Is this the right place for "tokio::main"?
     #[tokio::main(basic_scheduler)]
-    async fn publish_message(&self, actor: &str, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
+    async fn publish_message(
+        &self,
+        actor: &str,
+        msg: PublishMessage,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
         let lock = self.clients.read().unwrap();
         let client = match lock.get(actor) {
             Some(c) => c,
-            None => return Err(format!("Unknown actor: {}", actor).into())
+            None => return Err(format!("Unknown actor: {}", actor).into()),
         };
 
         client.publish(msg).await
@@ -119,7 +132,10 @@ impl CapabilityProvider for AmazonSqsMessagingProvider {
 
     // Called by the host runtime when an actor is requesting a command be executed.
     fn handle_call(&self, actor: &str, op: &str, msg: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
-        info!("AmazonSqsMessagingProvider(wascc:messaging) handle_call `{}` from `{}`", op, actor);
+        info!(
+            "AmazonSqsMessagingProvider(wascc:messaging) handle_call `{}` from `{}`",
+            op, actor
+        );
 
         match op {
             OP_CONFIGURE if actor == "system" => self.start(deserialize(msg)?),

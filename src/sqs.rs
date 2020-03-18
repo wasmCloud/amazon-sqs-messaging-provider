@@ -17,7 +17,7 @@
 //
 
 use rusoto_core::Region;
-use rusoto_sqs::{Sqs, SqsClient, SendMessageRequest};
+use rusoto_sqs::{SendMessageRequest, Sqs, SqsClient};
 use std::error::Error;
 use wascc_codec::messaging::PublishMessage;
 
@@ -43,9 +43,13 @@ impl Client {
 
     // Publishes a message.
     pub async fn publish(&self, msg: PublishMessage) -> Result<Vec<u8>, Box<dyn Error>> {
-        info!("Publishing message ({} bytes) to {}", msg.message.body.len(), msg.message.subject);
+        info!(
+            "Publishing message ({} bytes) to {}",
+            msg.message.body.len(),
+            msg.message.subject
+        );
 
-        let req = SendMessageRequest{
+        let req = SendMessageRequest {
             queue_url: msg.message.subject,
             message_body: String::from_utf8(msg.message.body)?,
             ..Default::default()
